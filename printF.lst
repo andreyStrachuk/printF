@@ -1,0 +1,175 @@
+     1                                  section .data
+     2 00000000 4920616D2068657265-     Msg:  db "I am here%c%c!dgdfgsdf%c", 0xA, 0
+     2 00000009 256325632164676466-
+     2 00000012 6773646625630A00   
+     3                                  
+     4 0000001A 303132333435363738-     ConvertTable	db "0123456789ABCDEF"
+     4 00000023 39414243444546     
+     5                                  
+     6                                  section .bss
+     7                                  
+     8 00000000 <res 00001000>          buf     resb 4096
+     9                                  
+    10                                  section .text
+    11                                  
+    12                                  global _start
+    13                                  
+    14                                  _start:
+    15 00000000 BF52000000                      mov rdi, 'R'
+    16 00000005 BE41000000                      mov rsi, 'A'
+    17 0000000A BA4A000000                      mov rdx, 'J'
+    18                                  
+    19 0000000F 4151                            push r9
+    20 00000011 4150                            push r8
+    21 00000013 51                              push rcx
+    22 00000014 52                              push rdx
+    23 00000015 56                              push rsi
+    24 00000016 57                              push rdi
+    25                                  
+    26 00000017 48B8-                           mov rax, buf
+    26 00000019 [0000000000000000] 
+    27 00000021 48BB-                           mov rbx, Msg
+    27 00000023 [0000000000000000] 
+    28 0000002B E87F000000                      call cpy
+    29                                  
+    30 00000030 5F                              pop rdi
+    31 00000031 5E                              pop rsi
+    32 00000032 5A                              pop rdx
+    33 00000033 59                              pop rcx
+    34 00000034 4158                            pop r8
+    35 00000036 4159                            pop r9
+    36                                  
+    37 00000038 48BE-                           mov rsi, buf
+    37 0000003A [0000000000000000] 
+    38 00000042 E851000000                      call StrLen
+    39 00000047 89CA                            mov edx, ecx
+    40                                  
+    41 00000049 B804000000                      mov eax, 0x04
+    42 0000004E BB01000000                      mov ebx, 1
+    43 00000053 B9[00000000]                    mov ecx, buf
+    44 00000058 CD80                            int 0x80
+    45                                  
+    46 0000005A B801000000                      mov eax, 0x01
+    47 0000005F 31DB                            xor ebx, ebx
+    48 00000061 CD80                            int 0x80
+    49                                  
+    50                                  
+    51                                  ;--------------------------------------------
+    52                                  ; Converts an integer value to a null-terminated string using
+    53                                  ; the specified base and stores the result in the array given by str parameter.
+    54                                  ;
+    55                                  ; Entry: 	RSI - addr of the string
+    56                                  ;			RBX - number
+    57                                  ;			RCX - base of numeric system
+    58                                  ;
+    59                                  ; Exit:		RSI - addr of the string
+    60                                  ;
+    61                                  ; Destr:	RAX, RBX, RDX
+    62                                  ;--------------------------------------------
+    63                                  itoa:
+    64 00000063 4889D8                              mov rax, rbx          
+    65                                  
+    66                                  .count:
+    67 00000066 4831D2                              xor rdx, rdx
+    68 00000069 48F7F1                              div rcx
+    69                                  
+    70 0000006C 4883F800                            cmp rax, 0
+    71 00000070 7405                                je .MainFunc
+    72 00000072 48FFC6                              inc rsi
+    73 00000075 EBEF                                jmp .count
+    74                                  
+    75                                  .MainFunc:
+    76 00000077 4889D8                              mov rax, rbx
+    77                                  
+    78                                  .itoaloop:
+    79 0000007A 4831D2                              xor rdx, rdx
+    80 0000007D 48F7F1                              div rcx
+    81                                  
+    82 00000080 4889D3                              mov rbx, rdx
+    83 00000083 8A93[1A000000]                      mov dl, byte [rbx + ConvertTable]   
+    84                                  
+    85 00000089 8816                                mov byte [rsi], dl     
+    86 0000008B 48FFCE                              dec rsi
+    87                                  
+    88 0000008E 4883F800                            cmp rax, 0
+    89 00000092 75E6                                jne .itoaloop
+    90                                  
+    91 00000094 48FFC6                              inc rsi
+    92                                  
+    93 00000097 C3                      	    ret
+    94                                  
+    95                                  ;---------------------------------
+    96                                  ; This function calculates	the length of string which terminates by '\0' symbol
+    97                                  ; Entry: RSI - addres of string
+    98                                  ;
+    99                                  ; Exit: RCX	- length
+   100                                  ; Destr: RCX
+   101                                  ;---------------------------------
+   102                                  StrLen:
+   103 00000098 56                                      push rsi
+   104 00000099 4831C9                                  xor rcx, rcx
+   105 0000009C 48FFC9                                  dec rcx
+   106 0000009F 48FFCE                                  dec rsi
+   107                                  
+   108 000000A2 48FFC6                  .cycle_len:     inc rsi
+   109 000000A5 48FFC1                                  inc rcx
+   110                                  
+   111 000000A8 803E00                                  cmp byte [rsi], 0
+   112                                  
+   113 000000AB 75F5                                    jne .cycle_len
+   114                                  
+   115 000000AD 5E                                      pop rsi
+   116                                  
+   117 000000AE C3                                      ret
+   118                                  
+   119                                  
+   120                                  ;-------------------------------------------------
+   121                                  ; SI - string literal, DI - buffer to print
+   122                                  ; 
+   123                                  ; go through buffer
+   124                                  ;-------------------------------------------------
+   125                                  cpy:
+   126 000000AF 55                              push rbp
+   127 000000B0 4889E5                          mov rbp, rsp
+   128                                  
+   129 000000B3 4831C9                          xor rcx, rcx
+   130 000000B6 B910000000                      mov rcx, 16
+   131                                  
+   132 000000BB 4831D2                  cycle:  xor rdx, rdx
+   133 000000BE 803B00                          cmp byte [rbx], 0
+   134 000000C1 7431                            je exit
+   135                                  
+   136 000000C3 803B25                          cmp byte [rbx], '%'
+   137 000000C6 7402                            je p_hand
+   138                                  
+   139 000000C8 751C                            jne ord_h
+   140                                  
+   141 000000CA 807B0163                p_hand: cmp byte [rbx + 1], 'c'
+   142                                  
+   143 000000CE 7516                            jne ord_h
+   144                                  
+   145 000000D0 7400                            je c_hand
+   146                                  
+   147                                  
+   148 000000D2 488B540D00              c_hand: mov rdx, [rbp + rcx]
+   149 000000D7 8810                            mov byte [rax], dl
+   150 000000D9 4883C302                        add rbx, 2
+   151 000000DD 48FFC0                          inc rax
+   152 000000E0 4883C108                        add rcx, 8
+   153                                  
+   154 000000E4 EBD5                            jmp cycle
+   155                                  
+   156 000000E6 488B13                  ord_h:  mov rdx, [rbx]
+   157 000000E9 488910                          mov [rax], rdx
+   158                                  
+   159 000000EC 48FFC0                          inc rax
+   160 000000EF 48FFC3                          inc rbx
+   161                                  
+   162 000000F2 EBC7                            jmp cycle
+   163                                  
+   164                                  exit:
+   165 000000F4 C60300                          mov byte [rbx], 0
+   166                                  
+   167 000000F7 5D                              pop rbp
+   168                                  
+   169 000000F8 C3                              ret
