@@ -1,5 +1,10 @@
 section .data
-Msg:  db "I am here%c%c!dgdfgsdf%c", 0xA, 0
+Msg:  db "%dI am here%s!dgdfgsdf %s %c", 0xA, 0
+
+str:  db "something to print", 0
+str1:  db "something to print 2", 0
+
+tmpBuff  times 40 db 0
 
 ConvertTable	db "0123456789ABCDEF"
 
@@ -12,9 +17,10 @@ section .text
 global _start
 
 _start:
-        mov rdi, 'R'
-        mov rsi, 'A'
-        mov rdx, 'J'
+        mov rdi, 1612
+        mov rsi, str
+        mov rdx, str1
+        mov rcx, 'W'
 
         push r9
         push r8
@@ -75,6 +81,8 @@ itoa:
 .MainFunc:
             mov rax, rbx
 
+            mov byte [rsi + 1], 0
+
 .itoaloop:
             xor rdx, rdx
             div rcx
@@ -118,52 +126,185 @@ StrLen:
 
 
 ;-------------------------------------------------
-; SI - string literal, DI - buffer to print
+; This function forms string which is to be printed
 ; 
-; go through buffer
+; RBX - string literal, RAX - buffer to print
+; 
+; Destr: RCX, RDX
 ;-------------------------------------------------
 cpy:
-        push rbp
-        mov rbp, rsp
+                push rbp
+                mov rbp, rsp
 
-        xor rcx, rcx
-        mov rcx, 16
+                xor rcx, rcx
+                mov rcx, 16
 
-cycle:  xor rdx, rdx
-        cmp byte [rbx], 0
-        je exit
+cycle:          xor rdx, rdx
+                cmp byte [rbx], 0
+                je exit
 
-        cmp byte [rbx], '%'
-        je p_hand
+                cmp byte [rbx], '%'
+                je p_hand
 
-        jne ord_h
+                jne ord_h       
 
-p_hand: cmp byte [rbx + 1], 'c'
+p_hand:         cmp byte [rbx + 1], 'c'
 
-        jne ord_h
+                je c_hand
 
-        je c_hand
+                cmp byte [rbx + 1], 'd'
+
+                je d_hand
+
+                cmp byte [rbx + 1], 's'
+                jne ord_h
+
+                call ps_hand
+
+                jmp cycle
 
 
-c_hand: mov rdx, [rbp + rcx]
-        mov byte [rax], dl
-        add rbx, 2
-        inc rax
-        add rcx, 8
+c_hand:         call pc_hand
 
-        jmp cycle
+                jmp cycle
 
-ord_h:  mov rdx, [rbx]
-        mov [rax], rdx
+d_hand:         call pd_hand
 
-        inc rax
-        inc rbx
+                jmp cycle
 
-        jmp cycle
+ord_h:          mov rdx, [rbx]
+                mov [rax], rdx
+
+                inc rax
+                inc rbx
+
+                jmp cycle
 
 exit:
-        mov byte [rbx], 0
+                mov byte [rbx], 0
 
-        pop rbp
+                pop rbp
 
-        ret
+                ret
+
+;--------------------------------------------
+; This function stores %d value in the buffer
+;
+; Entry: RAX - buffer, RBP - stack base, RCX - shift in stack
+; RBX - literal, 
+;
+; Destr: DX
+;--------------------------------------------
+pd_hand:
+                xor rdx, rdx
+
+                push rbx
+                push rcx
+                push rsi
+
+                push rax
+                push rdx
+
+                mov rbx, [rbp + rcx]
+                mov rcx, 16
+                mov rsi, tmpBuff
+                call itoa
+
+                pop rdx
+                pop rax
+
+.cycle:         cmp byte [rsi], 0
+                je .return
+
+                mov rdx, [rsi]
+                mov byte [rax], dl
+                inc rax
+                inc rsi
+
+                jmp .cycle
+
+.return:        pop rsi
+                pop rcx
+                pop rbx
+
+                add rbx, 2
+                add rcx, 8
+
+                ret
+
+
+;--------------------------------------------
+; This function stores %c value in the buffer
+;
+; Entry: RAX - buffer, RBP - stack base, RCX - shift in stack
+; RBX - literal
+;
+; Destr: DX
+;--------------------------------------------
+pc_hand:
+                xor dx, dx
+                mov rdx, [rbp + rcx]
+                mov byte [rax], dl
+                add rbx, 2
+                inc rax
+                add rcx, 8
+
+                ret
+
+
+                
+;--------------------------------------------
+; This function stores %s value in the buffer
+;
+; Entry: RAX - buffer, RBP - stack base, RCX - shift in stack
+; RBX - literal
+;
+; Destr: DX
+;--------------------------------------------
+ps_hand:
+                xor rdx, rdx
+
+                mov rdx, [rbp + rcx]
+                push rbx
+
+s_h:            xor rbx, rbx
+
+                cmp byte [rdx], 0
+                je out
+
+                mov rbx, [rdx]
+                mov [rax], rbx
+
+                inc rax
+                inc rdx
+
+                jmp s_h
+
+out:            add rcx, 8
+                pop rbx
+
+                add rbx, 2
+
+                ret
+
+
+
+;------------------------------------------------
+; Copies the character string pointed to by src,
+; including the null terminator, to the character
+; array whose first element is pointed to by dest.
+;
+; The behavior is undefined if the	dest array is not
+; large enough. The behavior is undefined if the strings overlap.
+;
+; Entry: RSI - addr	of the source string
+;
+; Exit:  RDI - addr	of dest	string
+; Destr: BX, AX
+;------------------------------------------------
+strcpy:
+                call StrLen	     ; calculating length of source string, CX
+
+                rep movsb
+
+                ret
