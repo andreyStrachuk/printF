@@ -1,5 +1,5 @@
 section .data
-Msg:  db "%dI am here%s!dgdfgsdf %s %c", 0xA, 0
+Msg:  db "%xI am here%s!dgdfgsdf %s %c", 0xA, 0
 
 str:  db "something to print", 0
 str1:  db "something to print 2", 0
@@ -7,6 +7,33 @@ str1:  db "something to print 2", 0
 tmpBuff  times 40 db 0
 
 ConvertTable	db "0123456789ABCDEF"
+
+jmpTable        dq ord_h
+                dq b_hand
+                dq c_hand
+                dq d_hand
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq o_hand
+                dq ord_h
+                dq ord_h
+                dq s_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq ord_h
+                dq x_hand
+                dq ord_h
+                dq ord_h
+                dq ord_h
+
 
 section .bss
 
@@ -156,6 +183,18 @@ p_hand:         cmp byte [rbx + 1], 'c'
 
                 je d_hand
 
+                cmp byte [rbx + 1], 'b'
+
+                je b_hand
+
+                cmp byte [rbx + 1], 'o'
+
+                je o_hand
+
+                cmp byte [rbx + 1], 'x'
+
+                je x_hand
+
                 cmp byte [rbx + 1], 's'
                 jne ord_h
 
@@ -168,7 +207,31 @@ c_hand:         call pc_hand
 
                 jmp cycle
 
-d_hand:         call pd_hand
+d_hand:         push r10
+                mov r10, 10
+                call number_hand
+                pop r10
+
+                jmp cycle
+
+b_hand:         push r10
+                mov r10, 2
+                call number_hand
+                pop r10
+
+                jmp cycle
+
+o_hand:         push r10
+                mov r10, 8
+                call number_hand
+                pop r10
+
+                jmp cycle
+
+x_hand:         push r10
+                mov r10, 16
+                call number_hand
+                pop r10
 
                 jmp cycle
 
@@ -195,7 +258,7 @@ exit:
 ;
 ; Destr: DX
 ;--------------------------------------------
-pd_hand:
+number_hand:
                 xor rdx, rdx
 
                 push rbx
@@ -206,7 +269,7 @@ pd_hand:
                 push rdx
 
                 mov rbx, [rbp + rcx]
-                mov rcx, 16
+                mov rcx, r10
                 mov rsi, tmpBuff
                 call itoa
 
