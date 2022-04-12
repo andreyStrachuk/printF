@@ -1,38 +1,56 @@
-section .data
-Msg:  db "%xI am here%s!dgdfgsdf %s %c", 0xA, 0
+%macro          saveregs 0
+                push rbx
+                push r12
+                push r13
+                push r14
+                push r15
+%endmacro
 
-str:  db "something to print", 0
-str1:  db "something to print 2", 0
+%macro          pushparams 0
+                push r9
+                push r8
+                push rcx
+                push rdx
+                push rsi
+                push rdi
+%endmacro
+
+
+section .data
+
+baseshift       equ 64
 
 tmpBuff  times 40 db 0
 
 ConvertTable	db "0123456789ABCDEF"
 
-jmpTable        dq ord_h
+
+jmpTable        dq wrong_perc
                 dq b_hand
                 dq c_hand
                 dq d_hand
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
                 dq o_hand
-                dq ord_h
-                dq ord_h
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
                 dq s_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
-                dq ord_h
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
+                dq wrong_perc
                 dq x_hand
-                dq ord_h
-                dq ord_h
-                dq ord_h
+                dq wrong_perc
+                dq wrong_perc
 
 
 section .bss
@@ -41,44 +59,43 @@ buf     resb 4096
 
 section .text
 
-global _start
+global printF
 
-_start:
-        mov rdi, 1612
-        mov rsi, str
-        mov rdx, str1
-        mov rcx, 'W'
+;----------------------------
+; This function works as printf from libc
+; Supported formats: %b, %o, %d, %x, %s, %c
+; 
+; Entry: RDI - string literal; RSI, RDX, RCX, R8, R9 - arguments
+; if you want print more than 5 args - push them to stack before calling this function (don't remove ret addr - function will do this for you)
+;
+; Destr: nothing
+;----------------------------
+printF:
+                pop r10         ; pop ret addr from stack to r10 reg
 
-        push r9
-        push r8
-        push rcx
-        push rdx
-        push rsi
-        push rdi
+                pushparams
 
-        mov rax, buf
-        mov rbx, Msg
-        call cpy
+                saveregs
 
-        pop rdi
-        pop rsi
-        pop rdx
-        pop rcx
-        pop r8
-        pop r9
+                mov rax, buf
+                mov rbx, rdi
 
-        mov rsi, buf
-        call StrLen
-        mov edx, ecx
+                call cpy
 
-        mov eax, 0x04
-        mov ebx, 1
-        mov ecx, buf
-        int 0x80
+                mov rsi, buf
+                call StrLen
+                mov rdx, rcx
 
-        mov eax, 0x01
-        xor ebx, ebx
-        int 0x80
+                mov rax, 0x04
+                mov rbx, 1
+                mov rcx, buf
+                int 0x80
+
+                recregs
+
+                push r10        ; push ret addr to stack
+
+                ret
 
 
 ;--------------------------------------------
@@ -94,38 +111,38 @@ _start:
 ; Destr:	RAX, RBX, RDX
 ;--------------------------------------------
 itoa:
-            mov rax, rbx          
+                mov rax, rbx          
 
 .count:
-            xor rdx, rdx
-            div rcx
+                xor rdx, rdx
+                div rcx
 
-            cmp rax, 0
-            je .MainFunc
-            inc rsi
-            jmp .count
+                cmp rax, 0
+                je .MainFunc
+                inc rsi
+                jmp .count
 
 .MainFunc:
-            mov rax, rbx
+                mov rax, rbx
 
-            mov byte [rsi + 1], 0
+                mov byte [rsi + 1], 0
 
 .itoaloop:
-            xor rdx, rdx
-            div rcx
+                xor rdx, rdx
+                div rcx
 
-            mov rbx, rdx
-            mov dl, byte [rbx + ConvertTable]   
+                mov rbx, rdx
+                mov dl, byte [rbx + ConvertTable]   
 
-            mov byte [rsi], dl     
-            dec rsi
+                mov byte [rsi], dl     
+                dec rsi
 
-            cmp rax, 0
-            jne .itoaloop
+                cmp rax, 0
+                jne .itoaloop
 
-            inc rsi
+                inc rsi
 
-	    ret
+                ret
 
 ;---------------------------------
 ; This function calculates	the length of string which terminates by '\0' symbol
@@ -164,7 +181,7 @@ cpy:
                 mov rbp, rsp
 
                 xor rcx, rcx
-                mov rcx, 16
+                mov rcx, baseshift
 
 cycle:          xor rdx, rdx
                 cmp byte [rbx], 0
@@ -173,34 +190,19 @@ cycle:          xor rdx, rdx
                 cmp byte [rbx], '%'
                 je p_hand
 
-                jne ord_h       
+                cmp byte [rbx], '\'
+                je bslash_h
 
-p_hand:         cmp byte [rbx + 1], 'c'
-
-                je c_hand
-
-                cmp byte [rbx + 1], 'd'
-
-                je d_hand
-
-                cmp byte [rbx + 1], 'b'
-
-                je b_hand
-
-                cmp byte [rbx + 1], 'o'
-
-                je o_hand
-
-                cmp byte [rbx + 1], 'x'
-
-                je x_hand
-
-                cmp byte [rbx + 1], 's'
                 jne ord_h
 
-                call ps_hand
+p_hand:         cmp byte [rbx + 1], '%'
+                je perc_perc
 
-                jmp cycle
+                xor rdx, rdx
+                mov dl, byte [rbx + 1]
+                sub rdx, 'a'
+
+                jmp [jmpTable + 8 * rdx]
 
 
 c_hand:         call pc_hand
@@ -243,8 +245,39 @@ ord_h:          mov rdx, [rbx]
 
                 jmp cycle
 
+wrong_perc:     mov rdx, [rbx]
+                mov [rax], rdx
+
+                mov byte [rax + 1], ' '
+
+                add rax, 2
+                add rbx, 2
+
+                jmp cycle
+
+s_h:            call ps_hand
+
+                jmp cycle
+
+perc_perc:      mov rdx, [rbx + 1]
+                mov [rax], rdx
+
+                inc rax
+                add rbx, 2
+
+                jmp cycle
+
+bslash_h:       cmp byte [rbx + 1], 'n'
+                jne ord_h
+
+                mov byte [rax], 0xA
+                inc rax
+                add rbx, 2
+
+                jmp cycle
+
 exit:
-                mov byte [rbx], 0
+                mov byte [rax], 0
 
                 pop rbp
 
@@ -256,7 +289,7 @@ exit:
 ; Entry: RAX - buffer, RBP - stack base, RCX - shift in stack
 ; RBX - literal, 
 ;
-; Destr: DX
+; Destr: RDX
 ;--------------------------------------------
 number_hand:
                 xor rdx, rdx
@@ -325,12 +358,13 @@ pc_hand:
 ; Destr: DX
 ;--------------------------------------------
 ps_hand:
+                push rdx
                 xor rdx, rdx
 
                 mov rdx, [rbp + rcx]
                 push rbx
 
-s_h:            xor rbx, rbx
+s_hand:         xor rbx, rbx
 
                 cmp byte [rdx], 0
                 je out
@@ -341,33 +375,13 @@ s_h:            xor rbx, rbx
                 inc rax
                 inc rdx
 
-                jmp s_h
+                jmp s_hand
 
 out:            add rcx, 8
                 pop rbx
 
                 add rbx, 2
 
-                ret
-
-
-
-;------------------------------------------------
-; Copies the character string pointed to by src,
-; including the null terminator, to the character
-; array whose first element is pointed to by dest.
-;
-; The behavior is undefined if the	dest array is not
-; large enough. The behavior is undefined if the strings overlap.
-;
-; Entry: RSI - addr	of the source string
-;
-; Exit:  RDI - addr	of dest	string
-; Destr: BX, AX
-;------------------------------------------------
-strcpy:
-                call StrLen	     ; calculating length of source string, CX
-
-                rep movsb
+                pop rdx
 
                 ret
