@@ -5,7 +5,7 @@ CFLAGS = -c -Wall #-Wpedantic -Wextra
 
 NASMFLAGS = -w+all -f elf64
 
-LFLAGS = -no-pie
+LFLAGS = -fno-pie
 
 PROG_NAME = printF
 

@@ -6,6 +6,14 @@
                 push r15
 %endmacro
 
+%macro          recregs 0
+                pop r15
+                pop r14
+                pop r13
+                pop r12
+                pop rbx
+%endmacro
+
 %macro          pushparams 0
                 push r9
                 push r8
@@ -13,6 +21,15 @@
                 push rdx
                 push rsi
                 push rdi
+%endmacro
+
+%macro          popparams 0
+                pop rdi
+                pop rsi
+                pop rdx
+                pop rcx
+                pop r8
+                pop r9
 %endmacro
 
 
@@ -287,7 +304,7 @@ exit:
 ; This function stores %d value in the buffer
 ;
 ; Entry: RAX - buffer, RBP - stack base, RCX - shift in stack
-; RBX - literal, 
+; RBX - literal
 ;
 ; Destr: RDX
 ;--------------------------------------------
